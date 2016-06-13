@@ -1,11 +1,10 @@
 #ifndef SME_RENDER_H
 #define SME_RENDER_H
 
-#if defined(__unix) || defined(__unix__) || defined(__linux__)
-    #define LINUX
+#if defined(__linux__)
     #define VK_USE_PLATFORM_XCB_KHR
 #elif defined(_WIN32)
-    #define WINDOWS
+    #define VK_USE_PLATFORM_WIN32_KHR
 #endif
 #include <vulkan/vulkan.h>
 #include <stdint.h>

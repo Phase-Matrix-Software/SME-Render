@@ -347,9 +347,9 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
     
     std::vector<const char *> enabledExtensions {
         VK_KHR_SURFACE_EXTENSION_NAME,
-        #if defined(WINDOWS)
+        #if defined(_WIN32)
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME
-        #elif defined(LINUX)
+        #elif defined(__linux__)
         VK_KHR_XCB_SURFACE_EXTENSION_NAME
         #endif
     };
@@ -365,13 +365,13 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
     
     //========================Acquire drawable surface========================//
     
-    #if defined(WINDOWS)
+    #if defined(_WIN32)
         VkWin32SurfaceCreateInfoKHR surfaceCreateInfo;
         surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         surfaceCreateInfo.hinstance = SME::Window::hInstance; 
         surfaceCreateInfo.hwnd = SME::Window::hwnd;           
-        VkResult result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
-    #elif defined(LINUX)
+        result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
+    #elif defined(__linux__)
         VkXcbSurfaceCreateInfoKHR surfaceCreateInfo;
         surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
         surfaceCreateInfo.connection = SME::Window::connection;
