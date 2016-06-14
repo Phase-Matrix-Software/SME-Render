@@ -54,6 +54,10 @@ VkDevice SME::Render::getLogicalDevice(){
     return device;
 }
 
+VkPhysicalDevice SME::Render::getPhysicalDevice(){
+    return physicalDevice;
+}
+
 void render(){
     vkDeviceWaitIdle(device);
     uint32_t imageIndex;
@@ -701,7 +705,7 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
                 VK_ACCESS_MEMORY_READ_BIT,                  // srcAccessMask
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,       // dstAccessMask
                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,            // oldLayout
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,            // newLayout
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,            // newLayout
                 presentQueueFamilyIndex,                    // srcQueueFamilyIndex
                 graphicsQueueFamilyIndex,                   // dstQueueFamilyIndex
                 swapChain.images[i],                        // image
@@ -724,7 +728,7 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
                 nullptr,                                        // *pNext
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           // srcAccessMask
                 VK_ACCESS_MEMORY_READ_BIT,                      // dstAccessMask
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                // oldLayout
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,                // oldLayout
                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                // newLayout
                 graphicsQueueFamilyIndex,                       // srcQueueFamilyIndex
                 presentQueueFamilyIndex,                        // dstQueueFamilyIndex

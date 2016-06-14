@@ -56,6 +56,12 @@ namespace SME { namespace Render {
      * @return the logical device currently in use
      */
     VkDevice getLogicalDevice();
+    
+    /**
+     * Returns the physical device used for the creation of the logical device
+     * @return the physical device that represents the logical device in use
+     */
+    VkPhysicalDevice getPhysicalDevice();
 }}
 
 #endif /* SME_RENDER_H */

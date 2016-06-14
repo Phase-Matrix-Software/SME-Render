@@ -42,11 +42,27 @@ void SME::Pipeline::recordCommandBuffers(VkCommandBuffer commandBuffer, int fram
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void SME::TestPipeline::recordDrawCommands(VkCommandBuffer commandBuffer, int framebufferIndex){
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+SME::Pipeline::~Pipeline(){
+    if(pipeline != VK_NULL_HANDLE){
+        vkDestroyPipeline(SME::Render::getLogicalDevice(), pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+    }
+    
+    if(renderPass != VK_NULL_HANDLE){
+        vkDestroyRenderPass(SME::Render::getLogicalDevice(), renderPass, nullptr);
+        renderPass = VK_NULL_HANDLE;
+    }
 }
 
-bool SME::TestPipeline::createRenderPass(){    
+void SME::TestPipeline::recordDrawCommands(VkCommandBuffer commandBuffer, int framebufferIndex){
+    model.draw(commandBuffer);
+}
+
+bool SME::TestPipeline::createRenderPass(){  
+    if(!model.loadModel()){
+        fprintf(stderr, "Failed loading test model!\n");
+        return false;
+    }
     SME::Render::SwapChain swapchain = SME::Render::getSwapChain();
     
     VkAttachmentDescription attachmentDescriptions[] = {
@@ -141,16 +157,37 @@ bool SME::TestPipeline::createPipeline(){
         }
     };
     
+    VkVertexInputBindingDescription vertexBindingDescription = {
+        0,                                              // binding
+        8 * sizeof(float),                              // stride
+        VK_VERTEX_INPUT_RATE_VERTEX                     // inputRate
+    };
+
+    VkVertexInputAttributeDescription vertexAttributeDescriptions[] = {
+        {
+            0,                                          // location
+            vertexBindingDescription.binding,         // binding
+            VK_FORMAT_R32G32B32A32_SFLOAT,              // format
+            0                                           // offset
+        },
+        {
+            1,                                          // location
+            vertexBindingDescription.binding,         // binding
+            VK_FORMAT_R32G32B32A32_SFLOAT,              // format
+            4 * sizeof(float)                           // offset
+        }
+    };
+    
     //vertex input description
     
     VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,  //sType
         nullptr,                                                    //pNext
         0,                                                          //flags
-        0,                                                          //vertexBindingDescriptionCount
-        nullptr,                                                    //pVertexbindingDescriptions
-        0,                                                          //vertexAttributeDescriptionCount
-        nullptr                                                     //pVertexAttributeDescriptions
+        1,                                                          //vertexBindingDescriptionCount
+        &vertexBindingDescription,                                  //pVertexbindingDescriptions
+        2,                                                          //vertexAttributeDescriptionCount
+        vertexAttributeDescriptions                                 //pVertexAttributeDescriptions
     };  
     
     //input assembly description
@@ -159,7 +196,7 @@ bool SME::TestPipeline::createPipeline(){
         VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,    //sType
         nullptr,                                                        //pNext
         0,                                                              //flags
-        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,                            //topology
+        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,                           //topology
         VK_FALSE                                                        //primitveRestartEnable
     };
     
