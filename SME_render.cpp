@@ -4,6 +4,10 @@
 #include "SME_VkUtil.h"
 #include <SME_window.h>
 #include <SME_core.h>
+#include "SME_buffer.h"
+#ifdef BENCHMARK
+#include <chrono>
+#endif
 
 #ifdef DEBUG
 #include <cstring>
@@ -60,6 +64,9 @@ VkPhysicalDevice SME::Render::getPhysicalDevice(){
 
 void render(){
     vkDeviceWaitIdle(device);
+    #ifdef BENCHMARK
+    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+    #endif
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapChain.handle, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
     switch(result){
@@ -114,6 +121,9 @@ void render(){
             fprintf(stderr, "Problem occurred during swap chain image present: %d (%s)\n", result, SME::VkUtil::translateVkResult(result));
             abort();
     }
+    #ifdef BENCHMARK
+    printf("Frame took %u microseconds.\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count());
+    #endif
 }
 
 bool createSwapchain(){
@@ -233,6 +243,19 @@ bool createSwapchain(){
     VkPresentModeKHR presentMode;
     bool presentModeSet = false;
     
+    #ifdef BENCHMARK
+    for(VkPresentModeKHR &presentModeAvailable : presentModes){
+        if(presentModeAvailable == VK_PRESENT_MODE_IMMEDIATE_KHR){
+            presentMode = presentModeAvailable;
+            presentModeSet = true;
+            break;
+        }
+    }
+    if(!presentModeSet){
+        fprintf(stderr, "Couldn't set suitable present mode! Please disable benchmark mode.\n");
+        return false;
+    }
+    #else
     for(VkPresentModeKHR &presentModeAvailable : presentModes){
         if(presentModeAvailable == VK_PRESENT_MODE_MAILBOX_KHR){
             presentMode = presentModeAvailable;
@@ -253,6 +276,7 @@ bool createSwapchain(){
             return false;
         }
     }
+    #endif
     
     VkSwapchainCreateInfoKHR swapChainInfo;
     swapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -416,6 +440,9 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
         return false;
     }
     
+    //queue family index to be passed to the buffer code
+    uint32_t transferQueueFamilyIndex = UINT32_MAX;
+    
     //Enumerate all physical devices and check for their properties
     //Automatically chooses the device that fulfills the requirements
     for (uint32_t physicalDeviceIndex = 0; physicalDeviceIndex < deviceCount; physicalDeviceIndex++) {
@@ -474,14 +501,16 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
         
         if(shouldSkip){
             continue; 
-       }
+        }
         
         //Check available queue types
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(currentPhysicalDevice, &queueFamilyCount, NULL);
         std::vector<VkQueueFamilyProperties> familyProperties(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(currentPhysicalDevice, &queueFamilyCount, &familyProperties[0]);
-
+        
+        bool canUseGraphicsQueue = false;
+        
         for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; queueFamilyIndex++) {
             #ifdef DEBUG
             printf("Count of Queues in this queue family: %u\n", familyProperties[queueFamilyIndex].queueCount);
@@ -506,8 +535,23 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
             if(familyProperties[queueFamilyIndex].queueCount > 0 && familyProperties[queueFamilyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT){
                 if(graphicsQueueFamilyIndex == UINT32_MAX){
                     graphicsQueueFamilyIndex = queueFamilyIndex;
+                    if(familyProperties[queueFamilyIndex].queueFlags & VK_QUEUE_TRANSFER_BIT){
+                        canUseGraphicsQueue = true;
+                    }
                 }
             }
+            
+            //use a different queue family if possible
+            if(familyProperties[queueFamilyIndex].queueFlags & VK_QUEUE_TRANSFER_BIT && queueFamilyIndex != graphicsQueueFamilyIndex){
+                if(transferQueueFamilyIndex == UINT32_MAX){
+                    transferQueueFamilyIndex = queueFamilyIndex;    
+                }
+            }
+        }
+        
+        //couldn't use a different family, use the same queue as the graphics
+        if(transferQueueFamilyIndex == UINT32_MAX && canUseGraphicsQueue){
+            transferQueueFamilyIndex = graphicsQueueFamilyIndex;
         }
         
         if(graphicsQueueFamilyIndex == UINT32_MAX){
@@ -522,8 +566,9 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
             #ifdef DEBUG
             fprintf(stdout, "Using device %u, with the following queues\n"
                     "\tGraphics queue family: %u\n"
-                    "\tPresentation queue family: %u\n",
-                    physicalDeviceIndex, graphicsQueueFamilyIndex, presentQueueFamilyIndex);
+                    "\tPresentation queue family: %u\n"
+                    "\tTransfer queue family: %u\n",
+                    physicalDeviceIndex, graphicsQueueFamilyIndex, presentQueueFamilyIndex, transferQueueFamilyIndex);
             fprintf(stdout, "==================================================\n");
             #endif
             physicalDevice = currentPhysicalDevice;
@@ -573,6 +618,17 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
         });
     }
     
+    if(graphicsQueueFamilyIndex != transferQueueFamilyIndex){
+        queueCreationInfos.push_back({
+            VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,     //sType
+            nullptr,                                        //pNext
+            0,                                              //flags
+            transferQueueFamilyIndex,                       //queueFamilyIndex
+            static_cast<uint32_t>(queuePriorities.size()),  //queueCount
+            &queuePriorities[0]                             //pQueuePriorities
+        });
+    }
+    
     // Submit queue(s) into device info
     deviceInfo.queueCreateInfoCount = queueCreationInfos.size();
     deviceInfo.pQueueCreateInfos = &queueCreationInfos[0];
@@ -587,6 +643,11 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
     
     vkGetDeviceQueue(device, graphicsQueueFamilyIndex, 0, &graphicsQueue);    
     vkGetDeviceQueue(device, presentQueueFamilyIndex, 0, &presentQueue);
+    
+    if(!SME::Buffer::initTransferBuffer(transferQueueFamilyIndex, device, physicalDevice)){
+        fprintf(stderr, "Couldn't initialise transfer buffer.\n");
+        return false;
+    }
     
     //============================Create Semaphore============================//
         
