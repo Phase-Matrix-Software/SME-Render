@@ -824,7 +824,11 @@ bool SME::Render::init(const char* applicationName, uint32_t applicationVersion)
 void SME::Render::cleanup(){
     if(device != VK_NULL_HANDLE){
         vkDeviceWaitIdle(device);
-
+        
+        for(std::vector<SME::Pipeline*>::iterator it = pipelines.begin(); it != pipelines.end(); ++it){
+            delete (*it);
+        }
+        
         if(graphicsCommandBuffers.size() > 0 && graphicsCommandBuffers[0] != VK_NULL_HANDLE){
             vkFreeCommandBuffers(device, graphicsQueueCmdPool, static_cast<uint32_t>(graphicsCommandBuffers.size()), &graphicsCommandBuffers[0]);
             graphicsCommandBuffers.clear();

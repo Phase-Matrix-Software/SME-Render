@@ -2,11 +2,16 @@
 #include "SME_VkUtil.h"
 #include <iostream>
 #include <cstring>
+#include <SME_core.h>
 
 VkQueue transferQueue;
 VkCommandPool transferQueueCommandPool;
 VkCommandBuffer transferCommandBuffer;
 SME::Buffer transferBuffer;
+
+void cleanup(){
+    transferBuffer.~Buffer();
+}
 
 bool SME::Buffer::initTransferBuffer(uint32_t familyIndex, VkDevice device, VkPhysicalDevice physicalDevice){
     vkGetDeviceQueue(device, familyIndex, 0, &transferQueue);
@@ -52,6 +57,8 @@ bool SME::Buffer::initTransferBuffer(uint32_t familyIndex, VkDevice device, VkPh
         fprintf(stderr, "Failed creating transfer buffer!\n");
         return false;
     }
+    
+    SME::Core::addCleanupHook(cleanup);
     
     return true;
 }

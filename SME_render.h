@@ -33,7 +33,9 @@ namespace SME { namespace Render {
     
     /**
      * Adds a pipeline to the renderer system
-     * @param pipeline
+     * @param pipeline it has to be an object created with new, otherwise the
+     * code will cause a segfault. Object deletion is handled by the engine, no
+     * need for further action by the user.
      */
     void addPipeline(Pipeline* pipeline);
     
