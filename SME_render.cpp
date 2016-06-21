@@ -7,6 +7,8 @@
 #include "SME_buffer.h"
 #ifdef BENCHMARK
 #include <chrono>
+uint32_t frames;
+std::chrono::high_resolution_clock::time_point lastAverage = std::chrono::high_resolution_clock::now();
 #endif
 
 #ifdef DEBUG
@@ -64,9 +66,6 @@ VkPhysicalDevice SME::Render::getPhysicalDevice(){
 
 void render(){
     vkDeviceWaitIdle(device);
-    #ifdef BENCHMARK
-    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    #endif
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapChain.handle, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
     switch(result){
@@ -122,7 +121,12 @@ void render(){
             abort();
     }
     #ifdef BENCHMARK
-    printf("Frame took %u microseconds.\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count());
+    frames++;
+    if(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - lastAverage).count() > 1000000){
+        printf("%u fps\n", frames);
+        frames = 0;
+        lastAverage = std::chrono::high_resolution_clock::now();
+    }
     #endif
 }
 
