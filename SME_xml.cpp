@@ -16,10 +16,11 @@ int getEndOfAttribsIndex(std::string str) {
     }
 }
 
-SME::XML::Tag SME::XML::parseXML(std::string path) {
+SME::XML::XMLBase SME::XML::parseXML(std::string path) {
     std::ifstream in(path);
 
-    SME::XML::Tag base, *current = &base;
+    SME::XML::XMLBase base;
+    SME::XML::Tag *current = &base;
     base.name = "base";
 
     std::string line;
@@ -38,10 +39,11 @@ SME::XML::Tag SME::XML::parseXML(std::string path) {
         if (xml.at(0) == '/') {//close tag
             current = current->parent;
         } else { //open tag
-            Tag newTag;
-            newTag.parent = current;
-            newTag.name = xml.substr(0, xml.find_first_of(" >"));
-            newTag.contents = xml.substr(xml.find('>') + 1, xml.find('<') - xml.find('>') - 1);
+            Tag *newTag = new Tag;
+            base._allTags.push_back(newTag);
+            newTag->parent = current;
+            newTag->name = xml.substr(0, xml.find_first_of(" >"));
+            newTag->contents = xml.substr(xml.find('>') + 1, xml.find('<') - xml.find('>') - 1);
             int attribsIndex = getEndOfAttribsIndex(xml);
             if (attribsIndex > xml.find(' ')) {
                 std::string attributes = xml.substr(xml.find(' '), attribsIndex - xml.find(' ')); //TODO "/>" is matching with strings (ie urls)
@@ -49,27 +51,29 @@ SME::XML::Tag SME::XML::parseXML(std::string path) {
                     std::vector<std::string> split = SME::Util::split(attrib, '=');
                     std::string key = split[0];
                     std::string val = split[1];
-                    newTag.attributes[key] = val;
+                    newTag->attributes[key] = val;
                 }
             }
 
             current->children.push_back(newTag);
             if (xml.substr(attribsIndex, xml.find('>', attribsIndex)-attribsIndex).find('/') == std::string::npos) { // not closing tag (<example />)
-                current = &current->children.back();
+                current = current->children.back();
             }
         }
     }
     return base;
 }
 
-SME::XML::Tag SME::XML::getFirstTag(Tag tag, std::string retTag) {
+SME::XML::Tag *SME::XML::getFirstTag(Tag tag, std::string retTag) {
     std::vector<std::string> split = SME::Util::split(retTag, '.');
 
+    Tag *current = &tag;
+    
     for (std::string name : split) {
         bool match = false;
-        for (Tag t : tag.children) {
-            if (t.name == name) {
-                tag = t;
+        for (Tag *t : current->children) {
+            if (t->name == name) {
+                current = t;
                 match = true;
                 break;
             }
@@ -79,5 +83,12 @@ SME::XML::Tag SME::XML::getFirstTag(Tag tag, std::string retTag) {
             exit(-1);
         }
     }
-    return tag;
+    return current;
+}
+
+SME::XML::XMLBase::~XMLBase() {
+    if (_allTags.size() == 0) return;
+    for (Tag *t : _allTags) {
+        delete t;
+    }
 }

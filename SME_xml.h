@@ -18,12 +18,19 @@ namespace SME {
             Tag *parent = nullptr;
             std::string name;
             std::map<std::string, std::string> attributes;
-            std::vector<Tag> children;
+            std::vector<Tag *> children;
             std::string contents;
        };
        
-       Tag parseXML(std::string path);
-       Tag getFirstTag(Tag tag, std::string retTag);
+       struct XMLBase : public Tag {
+           std::vector<Tag *> _allTags;
+            ~XMLBase();
+       };
+       
+       XMLBase parseXML(std::string path);
+       Tag *getFirstTag(Tag tag, std::string retTag);
+       
+       void cleanup(Tag base);
     }
 }
 #endif	/* SME_XML_H */
